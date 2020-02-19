@@ -116,6 +116,7 @@
 #include "media/homogeneous.h"
 
 #include <map>
+#include <memory>
 #include <stdio.h>
 
 namespace pbrt {
@@ -423,6 +424,7 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
     } while (false) /* swallow trailing semicolon */
 
 // Object Creation Function Definitions
+#pragma optimize( "", off )
 std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                                                const Transform *object2world,
                                                const Transform *world2object,
@@ -529,7 +531,25 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                              paramSet);
     else
         Warning("Shape \"%s\" unknown.", name.c_str());
-    return shapes;
+
+
+    int numNewTriangles = 0;
+    int numOldTriangles = 0;
+    for ( auto& shape : shapes )
+    {
+        if ( shape->IsSplitClippingSupported() )
+        {
+            auto tri = std::static_pointer_cast< Triangle >( shape );
+            numNewTriangles += tri->NumSplitTriangles( 100.0f / pow( 2, 6 ) );
+            ++numOldTriangles;
+        }
+    }
+    std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles << std::endl;
+
+    std::vector<std::shared_ptr<Shape>> splitShapes = shapes;
+
+
+    return splitShapes;
 }
 
 STAT_COUNTER("Scene/Materials created", nMaterialsCreated);

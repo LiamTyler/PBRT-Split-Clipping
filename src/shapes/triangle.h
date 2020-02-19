@@ -86,6 +86,18 @@ class Triangle : public Shape {
     bool IntersectP(const Ray &ray, bool testAlphaTexture = true) const;
     Float Area() const;
 
+    int NumSplitTriangles( float threshold ) const;
+
+    virtual bool IsSplitClippingSupported() const
+    {
+        return true;
+    }
+
+    virtual std::shared_ptr<Shape> NewShape() const
+    {
+        return std::make_shared<Triangle>( *this );
+    }
+
     using Shape::Sample;  // Bring in the other Sample() overload.
     Interaction Sample(const Point2f &u, Float *pdf) const;
 

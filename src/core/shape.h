@@ -75,6 +75,16 @@ class Shape {
                                Float *pdf) const;
     virtual Float Pdf(const Interaction &ref, const Vector3f &wi) const;
 
+    virtual bool IsSplitClippingSupported() const
+    {
+        return false;
+    }
+
+    virtual std::shared_ptr<Shape> NewShape() const
+    {
+        return nullptr;
+    }
+
     // Returns the solid angle subtended by the shape w.r.t. the reference
     // point p, given in world space. Some shapes compute this value in
     // closed-form, while the default implementation uses Monte Carlo

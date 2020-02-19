@@ -579,6 +579,70 @@ Float Triangle::Area() const {
     return 0.5 * Cross(p1 - p0, p2 - p0).Length();
 }
 
+struct SubdivTriangle
+{
+    SubdivTriangle() = default;
+    SubdivTriangle( const Point3f& _v0, const Point3f& _v1, const Point3f& _v2 ) :
+        v0( _v0 ),
+        v1( _v1 ),
+        v2( _v2 )
+    {
+    }
+
+    // returns how many triangles result from subdividing (1 if no subdivisions happen),
+    // and the new vertex positions used for the subdivided triangles
+    int Subdivide( float threshold )
+    {
+        float sa01 = Bounds3f( v0, v1 ).SurfaceArea();
+        float sa02 = Bounds3f( v0, v2 ).SurfaceArea();
+        float sa12 = Bounds3f( v1, v2 ).SurfaceArea();
+
+        float largestEdge = std::max( sa01, std::max( sa02, sa12 ) );
+        if ( largestEdge < threshold )
+        {
+            return 1;
+        }
+
+        Point3f newV;
+        SubdivTriangle t1, t2;
+        if ( sa02 < sa01 && sa12 < sa01 ) // if edge 0 -> 1 is largest
+        {
+            newV = 0.5 * (v0 + v1);
+            t1 = SubdivTriangle( v0, newV, v2 );
+            t2 = SubdivTriangle( v1, newV, v2 );
+        }
+        else if ( sa01 < sa02 && sa12 < sa02 ) // if edge 0 -> 2 is largest
+        {
+            newV = 0.5 * (v0 + v2);
+            t1 = SubdivTriangle( v0, newV, v1 );
+            t2 = SubdivTriangle( v2, newV, v1 );
+        }
+        else // if edge 1 -> 2 is largest
+        {
+            newV = 0.5 * (v1 + v2);
+            t1 = SubdivTriangle( v1, newV, v0 );
+            t2 = SubdivTriangle( v2, newV, v0 );
+        }
+
+        return t1.Subdivide( threshold ) + t2.Subdivide( threshold );
+    }
+
+    Point3f v0;
+    Point3f v1;
+    Point3f v2;
+};
+
+int Triangle::NumSplitTriangles( float threshold ) const
+{
+    const Point3f &p0 = mesh->p[v[0]];
+    const Point3f &p1 = mesh->p[v[1]];
+    const Point3f &p2 = mesh->p[v[2]];
+
+    SubdivTriangle tri( p0, p1, p2 );
+
+    return tri.Subdivide( threshold );   
+}
+
 Interaction Triangle::Sample(const Point2f &u, Float *pdf) const {
     Point2f b = UniformSampleTriangle(u);
     // Get triangle vertices in _p0_, _p1_, and _p2_
