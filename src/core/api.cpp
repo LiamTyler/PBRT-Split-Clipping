@@ -533,12 +533,13 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                              paramSet);
     else
         Warning("Shape \"%s\" unknown.", name.c_str());
-    // return shapes;
+    
 
 
+#if 1
     // do one pass to calculate how many triangles + vertices will be generated
-    //float THRESHOLD     = 1578546.0f / pow( 2, 20 ); // sponza unrotated
-    float THRESHOLD     = 419.651f / pow( 2, 28 ); // spaceship unrotated
+    float THRESHOLD     = 1578546.0f / pow( 2, 20 ); // sponza unrotated
+    // float THRESHOLD     = 419.651f / pow( 2, 28 ); // spaceship unrotated
     int numNewTriangles = 0;
     int numOldTriangles = 0;
     int numNewVerts     = 0;
@@ -569,14 +570,14 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
     }
     else
     {
-        std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles << std::endl;
-        std::cout << "Old num verts: " << numOldVerts << ", new: " << numNewVerts << std::endl;
+        std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles;
+        std::cout << ",\told num verts: " << numOldVerts << ", new: " << numNewVerts << std::endl;
     }
     
     s_oldTotalShapes += numOldTriangles;
     s_newTotalShapes += numNewTriangles;
+    return shapes;
 
-#if 1
     // allocate space for new TriangleMesh and copy existing vertex data over
     std::shared_ptr< TriangleMesh > newMesh = std::make_shared< TriangleMesh >();
     newMesh->alphaMask       = oldMesh->alphaMask;
@@ -1736,7 +1737,127 @@ void pbrtWorldEnd() {
                                  namedCoordinateSystems.end());
 }
 
-Scene *RenderOptions::MakeScene() {
+struct SubdivInfo
+{
+    int oldNumTris  = 0;
+    int oldNumVerts = 0;
+    int newNumTris  = 0;
+    int newNumVerts = 0;
+    std::shared_ptr< TriangleMesh > subdividedMesh;
+};
+
+Scene *RenderOptions::MakeScene()
+{
+    // calculate scene bounds
+    Bounds3f sceneAABB;
+    for ( const auto& prim : primitives )
+    {
+        sceneAABB = Union( sceneAABB, prim->WorldBound() );
+    }
+    std::cout << "\n\n\nScene volume = " << sceneAABB.Volume() << std::endl;
+    float THRESHOLD = sceneAABB.Volume() / pow( 2, 20 );
+    
+    // do one pass to find out how many tris and verts are generated for each subdivided TriangleMesh
+    std::unordered_map< std::shared_ptr< TriangleMesh >, SubdivInfo > meshSubdivInfo;
+    int totalNewPrims = 0;
+    for ( const auto& prim : primitives )
+    {
+        auto geom = std::dynamic_pointer_cast< GeometricPrimitive >( prim );
+        if ( geom )
+        {
+            auto tri = std::dynamic_pointer_cast< Triangle >( geom->shape );
+            if ( tri )
+            {
+                if ( meshSubdivInfo.find( tri->mesh ) == meshSubdivInfo.end() )
+                {
+                    meshSubdivInfo[tri->mesh].oldNumTris  = tri->mesh->nTriangles;
+                    meshSubdivInfo[tri->mesh].oldNumVerts = tri->mesh->nVertices;
+                    meshSubdivInfo[tri->mesh].newNumVerts = tri->mesh->nVertices;
+                }
+                auto& info        = meshSubdivInfo[tri->mesh];
+                int numSubdivTris = tri->NumSubdividedTris( THRESHOLD, info.newNumVerts );
+                info.newNumTris += numSubdivTris;
+                totalNewPrims   += numSubdivTris;
+            }
+        }
+    }
+    std::cout << "(Make shapes:)  Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
+    std::cout << "(Post parsing:) Old number of shapes: " << primitives.size() << ", new = " << totalNewPrims << std::endl << std::endl;
+
+    // For each TriangleMesh, allocate space for new subdivided TriangleMesh and copy existing vertex data over
+    for ( auto it = meshSubdivInfo.begin(); it != meshSubdivInfo.end(); ++it )
+    {
+        auto& oldMesh             = it->first;
+        auto& subdivInfo          = it->second;
+        auto newMesh              = std::make_shared< TriangleMesh >();
+        subdivInfo.subdividedMesh = newMesh;
+        std::cout << "Old num tris: " << subdivInfo.oldNumTris << ", new: " << subdivInfo.newNumTris;
+        std::cout << ",\told num verts: " << subdivInfo.oldNumVerts << ", new: " << subdivInfo.newNumVerts << std::endl;
+
+        newMesh->alphaMask       = oldMesh->alphaMask;
+        newMesh->shadowAlphaMask = oldMesh->shadowAlphaMask;
+        newMesh->nTriangles      = subdivInfo.newNumTris;
+        newMesh->nVertices       = subdivInfo.oldNumTris; // setting to the old number, because the subdiv method will increment this
+        newMesh->vertexIndices.reserve( subdivInfo.newNumTris * 3 ); // important so that the Triangle::v points stay valid!
+        newMesh->p.reset( new Point3f[subdivInfo.newNumVerts] );
+        for ( int i = 0; i < subdivInfo.oldNumVerts; ++i ) newMesh->p[i] = oldMesh->p[i];
+        // only vertices 'p' are guaranteed to be present
+        if ( oldMesh->n )
+        {
+            newMesh->n.reset( new Normal3f[subdivInfo.newNumVerts] );
+            for ( int i = 0; i < subdivInfo.oldNumVerts; ++i ) newMesh->n[i] = oldMesh->n[i];
+        }
+        if ( oldMesh->s )
+        {
+            newMesh->s.reset( new Vector3f[subdivInfo.newNumVerts] );
+            for ( int i = 0; i < subdivInfo.oldNumVerts; ++i ) newMesh->s[i] = oldMesh->s[i];
+        }
+        if ( oldMesh->uv )
+        {
+            newMesh->uv.reset( new Point2f[subdivInfo.newNumVerts] );
+            for ( int i = 0; i < subdivInfo.oldNumVerts; ++i ) newMesh->uv[i] = oldMesh->uv[i];
+        }
+    }
+
+    // now actually go through and subdiv each triangle
+    std::vector< std::shared_ptr< Primitive > > newPrimitives;
+    newPrimitives.reserve( totalNewPrims );
+    std::vector< std::shared_ptr< Shape > > newShapes;
+    newShapes.reserve( 1000 );
+    for ( size_t i = 0; i < primitives.size(); ++i )
+    {
+        auto prim = primitives[i];
+        auto geom = std::dynamic_pointer_cast< GeometricPrimitive >( prim );
+        if ( geom )
+        {
+            auto tri = std::dynamic_pointer_cast< Triangle >( geom->shape );
+            if ( tri )
+            {
+                newShapes.clear();
+                int numNewTris = tri->Subdivide( THRESHOLD, newShapes, meshSubdivInfo[tri->mesh].subdividedMesh );
+
+                // create a new Primitive for each subdivided triangle returned in 'newShapes'
+                for ( const auto& newTri : newShapes )
+                {
+                    auto newGeom   = std::make_shared< GeometricPrimitive >( *geom );
+                    newGeom->shape = newTri;
+                    newPrimitives.push_back( newGeom );
+                }
+            }
+            else
+            {
+                newPrimitives.push_back( prim );
+            }
+        }
+        else
+        {
+            newPrimitives.push_back( prim );
+        }
+    }
+
+    // replace old list of Primitives with new, subdivided list
+    primitives = std::move( newPrimitives );
+
     std::shared_ptr<Primitive> accelerator =
         MakeAccelerator(AcceleratorName, std::move(primitives), AcceleratorParams);
     if (!accelerator) accelerator = std::make_shared<BVHAccel>(primitives);
@@ -1744,7 +1865,7 @@ Scene *RenderOptions::MakeScene() {
     // Erase primitives and lights from _RenderOptions_
     primitives.clear();
     lights.clear();
-    std::cout << "Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
+    //std::cout << "Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
     return scene;
 }
 
