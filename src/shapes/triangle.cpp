@@ -582,49 +582,125 @@ Float Triangle::Area() const {
 struct SubdivTriangle
 {
     SubdivTriangle() = default;
-    SubdivTriangle( const Point3f& _v0, const Point3f& _v1, const Point3f& _v2 ) :
+    SubdivTriangle( int _i0, int _i1, int _i2 ) : i0( _i0 ), i1( _i1 ), i2( _i2 ) {}
+
+    int Subdivide( Triangle* originalTri, float threshold, std::vector< std::shared_ptr< Shape > >& newShapes, DynamicTriangleMesh& dynamicMesh ) const
+    {
+        float e01 = Bounds3f( dynamicMesh.p[i0], dynamicMesh.p[i1] ).Volume();
+        float e02 = Bounds3f( dynamicMesh.p[i0], dynamicMesh.p[i2] ).Volume();
+        float e12 = Bounds3f( dynamicMesh.p[i1], dynamicMesh.p[i2] ).Volume();
+
+        float largestEdge = std::max( e01, std::max( e02, e12 ) );
+        if ( largestEdge < threshold )
+        {
+            size_t numIndices = dynamicMesh.vertexIndices.size();
+            dynamicMesh.vertexIndices.push_back( i0 );
+            dynamicMesh.vertexIndices.push_back( i1 );
+            dynamicMesh.vertexIndices.push_back( i2 );
+            auto newTri = std::make_shared< Triangle >( originalTri->ObjectToWorld, originalTri->WorldToObject,
+                originalTri->reverseOrientation, &dynamicMesh.vertexIndices[numIndices] );
+            newShapes.push_back( newTri );
+            dynamicMesh.nTriangles++;
+            return 1;
+        }
+
+        int newVertIndex;
+        SubdivTriangle t1, t2;
+        if ( e02 < e01 && e12 < e01 ) // if edge 0 -> 1 is largest
+        {
+            newVertIndex = dynamicMesh.AddInterpolatedVertex( i0, i1 );
+            t1 = SubdivTriangle( i0, newVertIndex, i2 );
+            t2 = SubdivTriangle( newVertIndex, i1, i2 );
+        }
+        else if ( e12 < e02 ) // if edge 0 -> 2 is largest
+        {
+            newVertIndex = dynamicMesh.AddInterpolatedVertex( i0, i2 );
+            t1 = SubdivTriangle( newVertIndex, i0, i1 );
+            t2 = SubdivTriangle( i2, newVertIndex, i1 );
+        }
+        else // if edge 1 -> 2 is largest
+        {
+            newVertIndex = dynamicMesh.AddInterpolatedVertex( i1, i2 );
+            t1 = SubdivTriangle( i1, newVertIndex, i0 );
+            t2 = SubdivTriangle( i2, i0, newVertIndex );
+        }
+
+        return t1.Subdivide( originalTri, threshold, newShapes, dynamicMesh ) +
+               t2.Subdivide( originalTri, threshold, newShapes, dynamicMesh );
+    }
+
+    int i0;
+    int i1;
+    int i2;
+};
+
+int Triangle::Subdivide( float threshold, std::vector< std::shared_ptr< Shape > >& newShapes,
+                         DynamicTriangleMesh& dynamicMesh, const std::shared_ptr< TriangleMesh >& newMesh )
+{
+    SubdivTriangle tri( v[0], v[1], v[2] );
+
+    size_t currentNumTris = newShapes.size();
+    int newTris = tri.Subdivide( this, threshold, newShapes, dynamicMesh );
+    Bounds3f aabb;
+    for ( int i = currentNumTris; i < currentNumTris + newTris; ++i )
+    {
+        auto newTri = std::static_pointer_cast< Triangle >( newShapes[i] );
+        newTri->mesh = newMesh;
+        const Point3f &p0 = dynamicMesh.p[newTri->v[0]];
+        const Point3f &p1 = dynamicMesh.p[newTri->v[1]];
+        const Point3f &p2 = dynamicMesh.p[newTri->v[2]];
+        aabb = Union( aabb, p0 );
+        aabb = Union( aabb, p1 );
+        aabb = Union( aabb, p2 );
+    }
+    assert( aabb == WorldBound() );
+    return newTris;
+}
+
+struct SubdivCountTriangle
+{
+    SubdivCountTriangle() = default;
+    SubdivCountTriangle( const Point3f& _v0, const Point3f& _v1, const Point3f& _v2 ) :
         v0( _v0 ),
         v1( _v1 ),
         v2( _v2 )
     {
     }
 
-    // returns how many triangles result from subdividing (1 if no subdivisions happen),
-    // and the new vertex positions used for the subdivided triangles
-    int Subdivide( float threshold )
+    int CountSubdivide( float threshold )
     {
-        float sa01 = Bounds3f( v0, v1 ).SurfaceArea();
-        float sa02 = Bounds3f( v0, v2 ).SurfaceArea();
-        float sa12 = Bounds3f( v1, v2 ).SurfaceArea();
+        float e01 = Bounds3f( v0, v1 ).Volume();
+        float e02 = Bounds3f( v0, v2 ).Volume();
+        float e12 = Bounds3f( v1, v2 ).Volume();
 
-        float largestEdge = std::max( sa01, std::max( sa02, sa12 ) );
+        float largestEdge = std::max( e01, std::max( e02, e12 ) );
         if ( largestEdge < threshold )
         {
             return 1;
         }
 
         Point3f newV;
-        SubdivTriangle t1, t2;
-        if ( sa02 < sa01 && sa12 < sa01 ) // if edge 0 -> 1 is largest
+        SubdivCountTriangle t1, t2;
+        if ( e02 < e01 && e12 < e01 ) // if edge 0 -> 1 is largest
         {
             newV = 0.5 * (v0 + v1);
-            t1 = SubdivTriangle( v0, newV, v2 );
-            t2 = SubdivTriangle( v1, newV, v2 );
+            t1 = SubdivCountTriangle( v0, newV, v2 );
+            t2 = SubdivCountTriangle( newV, v1, v2 );
         }
-        else if ( sa01 < sa02 && sa12 < sa02 ) // if edge 0 -> 2 is largest
+        else if ( e12 < e02 ) // if edge 0 -> 2 is largest
         {
             newV = 0.5 * (v0 + v2);
-            t1 = SubdivTriangle( v0, newV, v1 );
-            t2 = SubdivTriangle( v2, newV, v1 );
+            t1 = SubdivCountTriangle( newV, v0, v1 );
+            t2 = SubdivCountTriangle( v2, newV, v1 );
         }
         else // if edge 1 -> 2 is largest
         {
             newV = 0.5 * (v1 + v2);
-            t1 = SubdivTriangle( v1, newV, v0 );
-            t2 = SubdivTriangle( v2, newV, v0 );
+            t1 = SubdivCountTriangle( v1, newV, v0 );
+            t2 = SubdivCountTriangle( v2, v0, newV );
         }
 
-        return t1.Subdivide( threshold ) + t2.Subdivide( threshold );
+        return t1.CountSubdivide( threshold ) + t2.CountSubdivide( threshold );
     }
 
     Point3f v0;
@@ -632,15 +708,15 @@ struct SubdivTriangle
     Point3f v2;
 };
 
-int Triangle::NumSplitTriangles( float threshold ) const
+int Triangle::NumSubdividedTris( float threshold ) const
 {
     const Point3f &p0 = mesh->p[v[0]];
     const Point3f &p1 = mesh->p[v[1]];
     const Point3f &p2 = mesh->p[v[2]];
 
-    SubdivTriangle tri( p0, p1, p2 );
+    SubdivCountTriangle tri( p0, p1, p2 );
 
-    return tri.Subdivide( threshold );   
+    return tri.CountSubdivide( threshold );   
 }
 
 Interaction Triangle::Sample(const Point2f &u, Float *pdf) const {

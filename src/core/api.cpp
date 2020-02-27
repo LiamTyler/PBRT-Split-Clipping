@@ -156,6 +156,9 @@ struct TransformSet {
     Transform t[MaxTransforms];
 };
 
+static int s_oldTotalShapes = 0;
+static int s_newTotalShapes = 0;
+
 struct RenderOptions {
     // RenderOptions Public Methods
     Integrator *MakeIntegrator() const;
@@ -424,7 +427,6 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
     } while (false) /* swallow trailing semicolon */
 
 // Object Creation Function Definitions
-#pragma optimize( "", off )
 std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                                                const Transform *object2world,
                                                const Transform *world2object,
@@ -533,6 +535,8 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
         Warning("Shape \"%s\" unknown.", name.c_str());
 
 
+    // do one pass to calculate how many triangles will be generated
+    float THRESHOLD = 1578546.0f / pow( 2, 20 );
     int numNewTriangles = 0;
     int numOldTriangles = 0;
     for ( auto& shape : shapes )
@@ -540,16 +544,86 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
         if ( shape->IsSplitClippingSupported() )
         {
             auto tri = std::static_pointer_cast< Triangle >( shape );
-            numNewTriangles += tri->NumSplitTriangles( 100.0f / pow( 2, 6 ) );
+            numNewTriangles += tri->NumSubdividedTris( THRESHOLD );
             ++numOldTriangles;
         }
     }
     std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles << std::endl;
+    s_oldTotalShapes += numOldTriangles;
+    s_newTotalShapes += numNewTriangles;
 
-    std::vector<std::shared_ptr<Shape>> splitShapes = shapes;
+    // now actually go through and subdivide each triangle if necessary
+#if 1
+    std::shared_ptr< TriangleMesh > oldMesh; // All triangles in 'shapes' will have the same TriangleMesh
+    std::shared_ptr< TriangleMesh > newMesh = std::make_shared< TriangleMesh >();
+    DynamicTriangleMesh dynamicMesh; // Same as a TriangleMesh but with vectors to push back the new vertices
+    int actualSubdivTotal = 0;
+    std::vector< std::shared_ptr< Shape > > newShapes;
+    newShapes.reserve( numNewTriangles );
+    for ( auto& shape : shapes )
+    {
+        if ( shape->IsSplitClippingSupported() )
+        {
+            auto tri = std::static_pointer_cast< Triangle >( shape );
+            // Copy the mesh data
+            if ( !oldMesh )
+            {
+                oldMesh = tri->mesh;
+                assert( oldMesh->faceIndices.empty() );
+                dynamicMesh.alphaMask       = oldMesh->alphaMask;
+                dynamicMesh.shadowAlphaMask = oldMesh->shadowAlphaMask;
+                dynamicMesh.p.reserve( oldMesh->nVertices );
+                dynamicMesh.n.reserve( oldMesh->n ? oldMesh->nVertices : 0 );
+                dynamicMesh.s.reserve( oldMesh->s ? oldMesh->nVertices : 0 );
+                dynamicMesh.uv.reserve( oldMesh->uv ? oldMesh->nVertices : 0 );
+                dynamicMesh.vertexIndices.reserve( 3 * numNewTriangles );
+                for ( int i = 0; i < oldMesh->nVertices; ++i )
+                {
+                    dynamicMesh.p.push_back( oldMesh->p[i] );
+                    if ( oldMesh->n )
+                        dynamicMesh.n.push_back( oldMesh->n[i] );
+                    if ( oldMesh->s )
+                        dynamicMesh.s.push_back( oldMesh->s[i] );
+                    if ( oldMesh->uv )
+                        dynamicMesh.uv.push_back( oldMesh->uv[i] );
+                }
+                
+            }
+            assert( oldMesh == tri->mesh );
+            
+            actualSubdivTotal += tri->Subdivide( THRESHOLD, newShapes, dynamicMesh, newMesh );
+        }
+    }
+    assert( actualSubdivTotal == numNewTriangles );
 
+    // actually make the new TriangleMesh
+    newMesh->alphaMask       = dynamicMesh.alphaMask;
+    newMesh->shadowAlphaMask = dynamicMesh.shadowAlphaMask;
+    newMesh->nVertices       = (int)dynamicMesh.p.size();
+    newMesh->nTriangles      = (int)dynamicMesh.vertexIndices.size() / 3;
+    newMesh->vertexIndices   = std::move( dynamicMesh.vertexIndices ); // move is imortant, so the Triangle::v address is valid
+    newMesh->p.reset( new Point3f[newMesh->nVertices]);
+    for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->p[i] = dynamicMesh.p[i];
+    if ( dynamicMesh.n.size() > 0 )
+    {
+        newMesh->n.reset( new Normal3f[newMesh->nVertices]);
+        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->n[i] = dynamicMesh.n[i];
+    }
+    if ( dynamicMesh.s.size() > 0 )
+    {
+        newMesh->s.reset( new Vector3f[newMesh->nVertices]);
+        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->s[i] = dynamicMesh.s[i];
+    }
+    if ( dynamicMesh.uv.size() > 0 )
+    {
+        newMesh->uv.reset( new Point2f[newMesh->nVertices]);
+        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->uv[i] = dynamicMesh.uv[i];
+    }
 
-    return splitShapes;
+    return newShapes;
+#else
+    return shapes;
+#endif
 }
 
 STAT_COUNTER("Scene/Materials created", nMaterialsCreated);
@@ -1676,6 +1750,7 @@ Scene *RenderOptions::MakeScene() {
     // Erase primitives and lights from _RenderOptions_
     primitives.clear();
     lights.clear();
+    std::cout << "Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
     return scene;
 }
 

@@ -222,6 +222,7 @@ BVHAccel::BVHAccel(std::vector<std::shared_ptr<Primitive>> p,
     int offset = 0;
     flattenBVHTree(root, &offset);
     CHECK_EQ(totalNodes, offset);
+    std::cout << "BVH World Volume: " << WorldBound().Volume() << std::endl;
 }
 
 Bounds3f BVHAccel::WorldBound() const {
