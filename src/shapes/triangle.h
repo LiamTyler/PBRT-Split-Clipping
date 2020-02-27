@@ -47,32 +47,6 @@ namespace pbrt {
 
 STAT_MEMORY_COUNTER("Memory/Triangle meshes", triMeshBytes);
 
-struct DynamicTriangleMesh
-{
-    std::vector< int > vertexIndices;
-    std::vector< Point3f > p;
-    std::vector< Normal3f > n;
-    std::vector< Vector3f > s;
-    std::vector< Point2f > uv;
-    std::shared_ptr <Texture< Float > > alphaMask, shadowAlphaMask;
-    int nTriangles = 0;
-
-    int AddInterpolatedVertex( int firstIndex, int secondIndex, float amt = 0.5f )
-    {
-        p.push_back( amt * (p[firstIndex] + p[secondIndex]) );
-        if ( n.size() )
-        {
-            Normal3f norm = Normalize( amt * (n[firstIndex] + n[secondIndex]) );
-            n.push_back( norm );
-        }
-        if ( s.size() )
-            s.push_back( amt * (s[firstIndex] + s[secondIndex]) );
-        if ( uv.size() )
-            uv.push_back( amt * (uv[firstIndex] + uv[secondIndex]) );
-        return static_cast< int >( p.size() - 1 );
-    }
-};
-
 // Triangle Declarations
 struct TriangleMesh {
     // TriangleMesh Public Methods
@@ -93,6 +67,20 @@ struct TriangleMesh {
     std::unique_ptr<Point2f[]> uv;
     std::shared_ptr<Texture<Float>> alphaMask, shadowAlphaMask;
     std::vector<int> faceIndices;
+
+    int AddInterpolatedVertex( int firstIndex, int secondIndex )
+    {
+        p[nVertices] = 0.5f * (p[firstIndex] + p[secondIndex]);
+        if ( n )
+            n[nVertices] = Normalize( 0.5f * (n[firstIndex] + n[secondIndex]) );
+        if ( s )
+            s[nVertices] = 0.5f * (s[firstIndex] + s[secondIndex]);
+        if ( uv )
+            uv[nVertices] = 0.5f * (uv[firstIndex] + uv[secondIndex]);
+
+        nVertices++;
+        return nVertices - 1;
+    }
 };
 
 class Triangle : public Shape {
@@ -108,8 +96,8 @@ class Triangle : public Shape {
     }
 
     Triangle( const Transform *ObjectToWorld, const Transform *WorldToObject,
-             bool reverseOrientation, const int* indices )
-        : Shape(ObjectToWorld, WorldToObject, reverseOrientation)
+             bool reverseOrientation, const std::shared_ptr<TriangleMesh> &_mesh, const int* indices )
+        : Shape(ObjectToWorld, WorldToObject, reverseOrientation), mesh( _mesh )
     {
         v = indices;
     }
@@ -121,9 +109,8 @@ class Triangle : public Shape {
     bool IntersectP(const Ray &ray, bool testAlphaTexture = true) const;
     Float Area() const;
 
-    int NumSubdividedTris( float threshold ) const;
-    int Subdivide( float threshold, std::vector< std::shared_ptr< Shape > >& newShapes,
-                         DynamicTriangleMesh& dynamicMesh, const std::shared_ptr< TriangleMesh >& newMesh );
+    int NumSubdividedTris( float threshold, int& numVerts ) const;
+    int Subdivide( float threshold, std::vector< std::shared_ptr< Shape > >& newShapes, const std::shared_ptr< TriangleMesh >& newMesh );
 
     virtual bool IsSplitClippingSupported() const
     {

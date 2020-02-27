@@ -533,91 +533,85 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                              paramSet);
     else
         Warning("Shape \"%s\" unknown.", name.c_str());
+    // return shapes;
 
 
-    // do one pass to calculate how many triangles will be generated
-    float THRESHOLD = 1578546.0f / pow( 2, 20 );
+    // do one pass to calculate how many triangles + vertices will be generated
+    //float THRESHOLD     = 1578546.0f / pow( 2, 20 ); // sponza unrotated
+    float THRESHOLD     = 419.651f / pow( 2, 28 ); // spaceship unrotated
     int numNewTriangles = 0;
     int numOldTriangles = 0;
+    int numNewVerts     = 0;
+    int numOldVerts     = 0;
+    std::shared_ptr< TriangleMesh > oldMesh; // All triangles in 'shapes' will have the same TriangleMesh
     for ( auto& shape : shapes )
     {
         if ( shape->IsSplitClippingSupported() )
         {
             auto tri = std::static_pointer_cast< Triangle >( shape );
-            numNewTriangles += tri->NumSubdividedTris( THRESHOLD );
+            if ( !oldMesh )
+            {
+                oldMesh      = tri->mesh;
+                numNewVerts += oldMesh->nVertices;
+                numOldVerts  = oldMesh->nVertices;
+            }
+            assert( oldMesh == tri->mesh );
+            
+            numNewTriangles += tri->NumSubdividedTris( THRESHOLD, numNewVerts );
             ++numOldTriangles;
         }
     }
-    std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles << std::endl;
+
+    // check if there are no triangles in 'shapes' to try subdividing
+    if ( !oldMesh )
+    {
+        return shapes;
+    }
+    else
+    {
+        std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles << std::endl;
+        std::cout << "Old num verts: " << numOldVerts << ", new: " << numNewVerts << std::endl;
+    }
+    
     s_oldTotalShapes += numOldTriangles;
     s_newTotalShapes += numNewTriangles;
 
-    // now actually go through and subdivide each triangle if necessary
 #if 1
-    std::shared_ptr< TriangleMesh > oldMesh; // All triangles in 'shapes' will have the same TriangleMesh
+    // allocate space for new TriangleMesh and copy existing vertex data over
     std::shared_ptr< TriangleMesh > newMesh = std::make_shared< TriangleMesh >();
-    DynamicTriangleMesh dynamicMesh; // Same as a TriangleMesh but with vectors to push back the new vertices
-    int actualSubdivTotal = 0;
+    newMesh->alphaMask       = oldMesh->alphaMask;
+    newMesh->shadowAlphaMask = oldMesh->shadowAlphaMask;
+    newMesh->nTriangles      = numNewTriangles;
+    newMesh->nVertices       = numOldVerts; // setting to the old number, because the subdiv method will increment this
+    newMesh->vertexIndices.reserve( numNewTriangles * 3 ); // important so that the Triangle::v points stay valid!
+    newMesh->p.reset( new Point3f[numNewVerts]);
+    for ( int i = 0; i < numOldVerts; ++i ) newMesh->p[i] = oldMesh->p[i];
+    if ( oldMesh->n )
+    {
+        newMesh->n.reset( new Normal3f[numNewVerts]);
+        for ( int i = 0; i < numOldVerts; ++i ) newMesh->n[i] = oldMesh->n[i];
+    }
+    if ( oldMesh->s )
+    {
+        newMesh->s.reset( new Vector3f[numNewVerts]);
+        for ( int i = 0; i < numOldVerts; ++i ) newMesh->s[i] = oldMesh->s[i];
+    }
+    if ( oldMesh->uv )
+    {
+        newMesh->uv.reset( new Point2f[numNewVerts]);
+        for ( int i = 0; i < numOldVerts; ++i ) newMesh->uv[i] = oldMesh->uv[i];
+    }
+
     std::vector< std::shared_ptr< Shape > > newShapes;
     newShapes.reserve( numNewTriangles );
     for ( auto& shape : shapes )
     {
         if ( shape->IsSplitClippingSupported() )
         {
-            auto tri = std::static_pointer_cast< Triangle >( shape );
-            // Copy the mesh data
-            if ( !oldMesh )
-            {
-                oldMesh = tri->mesh;
-                assert( oldMesh->faceIndices.empty() );
-                dynamicMesh.alphaMask       = oldMesh->alphaMask;
-                dynamicMesh.shadowAlphaMask = oldMesh->shadowAlphaMask;
-                dynamicMesh.p.reserve( oldMesh->nVertices );
-                dynamicMesh.n.reserve( oldMesh->n ? oldMesh->nVertices : 0 );
-                dynamicMesh.s.reserve( oldMesh->s ? oldMesh->nVertices : 0 );
-                dynamicMesh.uv.reserve( oldMesh->uv ? oldMesh->nVertices : 0 );
-                dynamicMesh.vertexIndices.reserve( 3 * numNewTriangles );
-                for ( int i = 0; i < oldMesh->nVertices; ++i )
-                {
-                    dynamicMesh.p.push_back( oldMesh->p[i] );
-                    if ( oldMesh->n )
-                        dynamicMesh.n.push_back( oldMesh->n[i] );
-                    if ( oldMesh->s )
-                        dynamicMesh.s.push_back( oldMesh->s[i] );
-                    if ( oldMesh->uv )
-                        dynamicMesh.uv.push_back( oldMesh->uv[i] );
-                }
-                
-            }
-            assert( oldMesh == tri->mesh );
+            auto tri = std::static_pointer_cast< Triangle >( shape );  
             
-            actualSubdivTotal += tri->Subdivide( THRESHOLD, newShapes, dynamicMesh, newMesh );
+            tri->Subdivide( THRESHOLD, newShapes, newMesh );
         }
-    }
-    assert( actualSubdivTotal == numNewTriangles );
-
-    // actually make the new TriangleMesh
-    newMesh->alphaMask       = dynamicMesh.alphaMask;
-    newMesh->shadowAlphaMask = dynamicMesh.shadowAlphaMask;
-    newMesh->nVertices       = (int)dynamicMesh.p.size();
-    newMesh->nTriangles      = (int)dynamicMesh.vertexIndices.size() / 3;
-    newMesh->vertexIndices   = std::move( dynamicMesh.vertexIndices ); // move is imortant, so the Triangle::v address is valid
-    newMesh->p.reset( new Point3f[newMesh->nVertices]);
-    for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->p[i] = dynamicMesh.p[i];
-    if ( dynamicMesh.n.size() > 0 )
-    {
-        newMesh->n.reset( new Normal3f[newMesh->nVertices]);
-        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->n[i] = dynamicMesh.n[i];
-    }
-    if ( dynamicMesh.s.size() > 0 )
-    {
-        newMesh->s.reset( new Vector3f[newMesh->nVertices]);
-        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->s[i] = dynamicMesh.s[i];
-    }
-    if ( dynamicMesh.uv.size() > 0 )
-    {
-        newMesh->uv.reset( new Point2f[newMesh->nVertices]);
-        for ( int i = 0; i < newMesh->nVertices; ++i ) newMesh->uv[i] = dynamicMesh.uv[i];
     }
 
     return newShapes;
