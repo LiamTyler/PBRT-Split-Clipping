@@ -533,92 +533,8 @@ std::vector<std::shared_ptr<Shape>> MakeShapes(const std::string &name,
                              paramSet);
     else
         Warning("Shape \"%s\" unknown.", name.c_str());
-    
 
-
-#if 1
-    // do one pass to calculate how many triangles + vertices will be generated
-    float THRESHOLD     = 1578546.0f / pow( 2, 20 ); // sponza unrotated
-    // float THRESHOLD     = 419.651f / pow( 2, 28 ); // spaceship unrotated
-    int numNewTriangles = 0;
-    int numOldTriangles = 0;
-    int numNewVerts     = 0;
-    int numOldVerts     = 0;
-    std::shared_ptr< TriangleMesh > oldMesh; // All triangles in 'shapes' will have the same TriangleMesh
-    for ( auto& shape : shapes )
-    {
-        if ( shape->IsSplitClippingSupported() )
-        {
-            auto tri = std::static_pointer_cast< Triangle >( shape );
-            if ( !oldMesh )
-            {
-                oldMesh      = tri->mesh;
-                numNewVerts += oldMesh->nVertices;
-                numOldVerts  = oldMesh->nVertices;
-            }
-            assert( oldMesh == tri->mesh );
-            
-            numNewTriangles += tri->NumSubdividedTris( THRESHOLD, numNewVerts );
-            ++numOldTriangles;
-        }
-    }
-
-    // check if there are no triangles in 'shapes' to try subdividing
-    if ( !oldMesh )
-    {
-        return shapes;
-    }
-    else
-    {
-        std::cout << "Old num tris: " << numOldTriangles << ", new: " << numNewTriangles;
-        std::cout << ",\told num verts: " << numOldVerts << ", new: " << numNewVerts << std::endl;
-    }
-    
-    s_oldTotalShapes += numOldTriangles;
-    s_newTotalShapes += numNewTriangles;
     return shapes;
-
-    // allocate space for new TriangleMesh and copy existing vertex data over
-    std::shared_ptr< TriangleMesh > newMesh = std::make_shared< TriangleMesh >();
-    newMesh->alphaMask       = oldMesh->alphaMask;
-    newMesh->shadowAlphaMask = oldMesh->shadowAlphaMask;
-    newMesh->nTriangles      = numNewTriangles;
-    newMesh->nVertices       = numOldVerts; // setting to the old number, because the subdiv method will increment this
-    newMesh->vertexIndices.reserve( numNewTriangles * 3 ); // important so that the Triangle::v points stay valid!
-    newMesh->p.reset( new Point3f[numNewVerts]);
-    for ( int i = 0; i < numOldVerts; ++i ) newMesh->p[i] = oldMesh->p[i];
-    if ( oldMesh->n )
-    {
-        newMesh->n.reset( new Normal3f[numNewVerts]);
-        for ( int i = 0; i < numOldVerts; ++i ) newMesh->n[i] = oldMesh->n[i];
-    }
-    if ( oldMesh->s )
-    {
-        newMesh->s.reset( new Vector3f[numNewVerts]);
-        for ( int i = 0; i < numOldVerts; ++i ) newMesh->s[i] = oldMesh->s[i];
-    }
-    if ( oldMesh->uv )
-    {
-        newMesh->uv.reset( new Point2f[numNewVerts]);
-        for ( int i = 0; i < numOldVerts; ++i ) newMesh->uv[i] = oldMesh->uv[i];
-    }
-
-    std::vector< std::shared_ptr< Shape > > newShapes;
-    newShapes.reserve( numNewTriangles );
-    for ( auto& shape : shapes )
-    {
-        if ( shape->IsSplitClippingSupported() )
-        {
-            auto tri = std::static_pointer_cast< Triangle >( shape );  
-            
-            tri->Subdivide( THRESHOLD, newShapes, newMesh );
-        }
-    }
-
-    return newShapes;
-#else
-    return shapes;
-#endif
 }
 
 STAT_COUNTER("Scene/Materials created", nMaterialsCreated);
@@ -628,6 +544,14 @@ std::shared_ptr<Material> MakeMaterial(const std::string &name,
     Material *material = nullptr;
     if (name == "" || name == "none")
         return nullptr;
+    else if (name == "RED")
+    {
+        Float red[3] = { 1, 0, 0 };
+        std::shared_ptr<Texture<Spectrum>> Kd   = mp.GetSpectrumTexture("Kd", RGBSpectrum::FromRGB( red ) );
+        std::shared_ptr<Texture<Float>> sigma   = mp.GetFloatTexture("sigma", 0.f);
+        std::shared_ptr<Texture<Float>> bumpMap = mp.GetFloatTextureOrNull("bumpmap");
+        material = new MatteMaterial(Kd, sigma, bumpMap);
+    }
     else if (name == "matte")
         material = CreateMatteMaterial(mp);
     else if (name == "plastic")
@@ -1748,6 +1672,12 @@ struct SubdivInfo
 
 Scene *RenderOptions::MakeScene()
 {
+    // Make subdiv Red material
+    ParamSet nullP;
+    std::map<std::string, std::shared_ptr<Texture<Float>>> emptyFloatTex;
+    std::map<std::string, std::shared_ptr<Texture<Spectrum>>> emptySpectrumTex;
+    TextureParams tp( nullP, nullP, emptyFloatTex, emptySpectrumTex );
+    std::shared_ptr< Material > redMaterial = MakeMaterial( "RED", tp );
     // calculate scene bounds
     Bounds3f sceneAABB;
     for ( const auto& prim : primitives )
@@ -1755,7 +1685,7 @@ Scene *RenderOptions::MakeScene()
         sceneAABB = Union( sceneAABB, prim->WorldBound() );
     }
     std::cout << "\n\n\nScene volume = " << sceneAABB.Volume() << std::endl;
-    float THRESHOLD = sceneAABB.Volume() / pow( 2, 20 );
+    float THRESHOLD = sceneAABB.Volume() / pow( 2, 28 );
     
     // do one pass to find out how many tris and verts are generated for each subdivided TriangleMesh
     std::unordered_map< std::shared_ptr< TriangleMesh >, SubdivInfo > meshSubdivInfo;
@@ -1763,22 +1693,19 @@ Scene *RenderOptions::MakeScene()
     for ( const auto& prim : primitives )
     {
         auto geom = std::dynamic_pointer_cast< GeometricPrimitive >( prim );
-        if ( geom )
+        if ( geom && geom->shape->IsSplitClippingSupported() )
         {
-            auto tri = std::dynamic_pointer_cast< Triangle >( geom->shape );
-            if ( tri )
+            auto tri = std::static_pointer_cast< Triangle >( geom->shape );
+            if ( meshSubdivInfo.find( tri->mesh ) == meshSubdivInfo.end() )
             {
-                if ( meshSubdivInfo.find( tri->mesh ) == meshSubdivInfo.end() )
-                {
-                    meshSubdivInfo[tri->mesh].oldNumTris  = tri->mesh->nTriangles;
-                    meshSubdivInfo[tri->mesh].oldNumVerts = tri->mesh->nVertices;
-                    meshSubdivInfo[tri->mesh].newNumVerts = tri->mesh->nVertices;
-                }
-                auto& info        = meshSubdivInfo[tri->mesh];
-                int numSubdivTris = tri->NumSubdividedTris( THRESHOLD, info.newNumVerts );
-                info.newNumTris += numSubdivTris;
-                totalNewPrims   += numSubdivTris;
+                meshSubdivInfo[tri->mesh].oldNumTris  = tri->mesh->nTriangles;
+                meshSubdivInfo[tri->mesh].oldNumVerts = tri->mesh->nVertices;
+                meshSubdivInfo[tri->mesh].newNumVerts = tri->mesh->nVertices;
             }
+            auto& info        = meshSubdivInfo[tri->mesh];
+            int numSubdivTris = tri->NumSubdividedTris( THRESHOLD, info.newNumVerts );
+            info.newNumTris += numSubdivTris;
+            totalNewPrims   += numSubdivTris;
         }
     }
     std::cout << "(Make shapes:)  Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
@@ -1797,7 +1724,7 @@ Scene *RenderOptions::MakeScene()
         newMesh->alphaMask       = oldMesh->alphaMask;
         newMesh->shadowAlphaMask = oldMesh->shadowAlphaMask;
         newMesh->nTriangles      = subdivInfo.newNumTris;
-        newMesh->nVertices       = subdivInfo.oldNumTris; // setting to the old number, because the subdiv method will increment this
+        newMesh->nVertices       = subdivInfo.oldNumVerts; // setting to the old number, because the subdiv method will increment this
         newMesh->vertexIndices.reserve( subdivInfo.newNumTris * 3 ); // important so that the Triangle::v points stay valid!
         newMesh->p.reset( new Point3f[subdivInfo.newNumVerts] );
         for ( int i = 0; i < subdivInfo.oldNumVerts; ++i ) newMesh->p[i] = oldMesh->p[i];
@@ -1828,25 +1755,22 @@ Scene *RenderOptions::MakeScene()
     {
         auto prim = primitives[i];
         auto geom = std::dynamic_pointer_cast< GeometricPrimitive >( prim );
-        if ( geom )
+        if ( geom && geom->shape->IsSplitClippingSupported() )
         {
-            auto tri = std::dynamic_pointer_cast< Triangle >( geom->shape );
-            if ( tri )
-            {
-                newShapes.clear();
-                int numNewTris = tri->Subdivide( THRESHOLD, newShapes, meshSubdivInfo[tri->mesh].subdividedMesh );
+            auto tri = std::static_pointer_cast< Triangle >( geom->shape );
+            newShapes.clear();
+            int numNewTris = tri->Subdivide( THRESHOLD, newShapes, meshSubdivInfo[tri->mesh].subdividedMesh );
 
-                // create a new Primitive for each subdivided triangle returned in 'newShapes'
-                for ( const auto& newTri : newShapes )
-                {
-                    auto newGeom   = std::make_shared< GeometricPrimitive >( *geom );
-                    newGeom->shape = newTri;
-                    newPrimitives.push_back( newGeom );
-                }
-            }
-            else
+            // create a new Primitive for each subdivided triangle returned in 'newShapes'
+            for ( const auto& newTri : newShapes )
             {
-                newPrimitives.push_back( prim );
+                auto newGeom   = std::make_shared< GeometricPrimitive >( *geom );
+                newGeom->shape = newTri;
+                if ( numNewTris > 1 )
+                {
+                    newGeom->material = redMaterial;
+                }
+                newPrimitives.push_back( newGeom );
             }
         }
         else
