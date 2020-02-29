@@ -49,6 +49,7 @@ files = [
     "SPONZA/sponza_T20_log.txt",
 ]
 
+
 triangleCounts = []
 renderTimes    = []
 
@@ -64,8 +65,10 @@ relativeCounts = [ 100 * x / triangleCounts[0] for x in triangleCounts ]
 relativeTimes  = [ 100 * x / renderTimes[0] for x in renderTimes ]
 
 xAxis = [ x for x in range(21) ]
-plt.plot(xAxis, relativeCounts, 'r', xAxis, relativeTimes, 'g--')
+lines = plt.plot(xAxis, relativeCounts, 'r', xAxis, relativeTimes, 'g--')
+plt.title( "Sponza Atrium (Frame 16)" )
 plt.ylabel('Percentage')
 plt.xlabel('Threshold')
-plt.axis([0, 20, 0, 140])
+plt.axis([0, 20, 0, 350])
+plt.legend( lines, ["# Triangles %", "Render Time %" ] )
 plt.show()

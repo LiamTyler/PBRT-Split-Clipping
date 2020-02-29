@@ -1,7 +1,7 @@
 Accelerator "bvh"
 
-LookAt -7 1 3   0 1 3   0 0 1
-Scale -1 1 1
+LookAt 0 0 0   -1 0 0   0 0 1
+#Scale -1 1 1
 
 Camera "perspective" "float fov" [60 ]
 Film "image"  "integer xresolution" [800 ] "integer yresolution" [800 ]
@@ -11,6 +11,14 @@ Sampler "lowdiscrepancy" "integer pixelsamples" [32]
 
 WorldBegin
 
+Rotate 15 0 0 1
+Rotate 10 0 1 0
+Rotate 45 1 0 0
+
+# frame 32 = 90, 20, 30 (right handed or left?)
+
+# Translate -0.00724029541 0.00148797035 -7.37331104 # negative of aabb centroid of sponza
+Translate -0.00724029541 0.00148797035 -7.37331104
 AttributeBegin
 AreaLightSource "area" "color L" [12 12 14 ] "integer nsamples" [15]
 ReverseOrientation
@@ -19,7 +27,7 @@ Shape "disk" "float radius" [75] "float height" [64]
 AttributeEnd
 
 #Rotate -45 1 0 0
-Rotate -48.4767986 0.9282791 0.2062842 0.3094264
+#Rotate -48.4767986 0.9282791 0.2062842 0.3094264
 Include "geometry/sponzageom.pbrt"
 
 WorldEnd

@@ -1681,12 +1681,16 @@ Scene *RenderOptions::MakeScene()
     Bounds3f sceneAABB;
     for ( const auto& prim : primitives )
     {
-        sceneAABB = Union( sceneAABB, prim->WorldBound() );
+        if ( !prim->GetAreaLight() )
+            sceneAABB = Union( sceneAABB, prim->WorldBound() );
     }
-    std::cout << "\n\n\nScene volume = " << sceneAABB.Volume() << ", T = " << g_subdivParams.currentT << std::endl;
+    std::cout << "Scene (no lights) volume  = " << sceneAABB.Volume() << ", T = " << g_subdivParams.currentT << std::endl;
+    std::cout << "Scene (no lights) AABB    = " << sceneAABB << std::endl;
+    std::cout << "Scene (no lights) ceneter = " << 0.5f * (sceneAABB.pMin + sceneAABB.pMax) << std::endl;
 
     float THRESHOLD = sceneAABB.Volume() / pow( 2, g_subdivParams.currentT );
     
+    Bounds3f trianglesAABB;
     // do one pass to find out how many tris and verts are generated for each subdivided TriangleMesh
     std::unordered_map< std::shared_ptr< TriangleMesh >, SubdivInfo > meshSubdivInfo;
     int totalNewPrims = 0;
@@ -1706,12 +1710,15 @@ Scene *RenderOptions::MakeScene()
             int numSubdivTris = tri->NumSubdividedTris( THRESHOLD, info.newNumVerts );
             info.newNumTris += numSubdivTris;
             totalNewPrims   += numSubdivTris;
+            trianglesAABB = Union( trianglesAABB, tri->WorldBound() );
         }
         else
         {
             totalNewPrims++;
         }
     }
+    std::cout << "TRIANGLES AABB    = " << trianglesAABB << std::endl;
+    std::cout << "TRIANGLES ceneter = " << 0.5f * (trianglesAABB.pMin + trianglesAABB.pMax) << std::endl;
     std::cout << "old_num_shapes: " << primitives.size() << ", new_num_shapes: " << totalNewPrims << std::endl << std::endl;
 
     // For each TriangleMesh, allocate space for new subdivided TriangleMesh and copy existing vertex data over
@@ -1769,10 +1776,10 @@ Scene *RenderOptions::MakeScene()
             {
                 auto newGeom   = std::make_shared< GeometricPrimitive >( *geom );
                 newGeom->shape = newTri;
-                if ( numNewTris > 1 )
-                {
-                    newGeom->material = redMaterial;
-                }
+                // if ( numNewTris > 1 )
+                // {
+                //     newGeom->material = redMaterial;
+                // }
                 newPrimitives.push_back( newGeom );
             }
         }
