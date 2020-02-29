@@ -41,6 +41,15 @@
 // core/api.h*
 #include "pbrt.h"
 
+struct SubdivHyperParams
+{
+    int T_Start  = 14;
+    int T_End    = 14;
+    int currentT = 14;
+};
+
+extern SubdivHyperParams g_subdivParams;
+
 namespace pbrt {
 
 // API Function Declarations

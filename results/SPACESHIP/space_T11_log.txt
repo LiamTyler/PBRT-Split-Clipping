@@ -1,0 +1,39 @@
+
+
+
+Scene volume = 419.651, T = 11
+old_num_shapes: 236755, new_num_shapes: 236923
+
+BVH World Volume: 419.651
+Rendering: [  ] Rendering: [  ]  (0.3s|3.7s)  Rendering: [  ]  (0.5s|3.4s)  Rendering: [  ]  (0.8s|3.1s)  Rendering: [+ ]  (1.1s|2.9s)  Rendering: [+ ]  (1.3s|2.9s)  Rendering: [+ ]  (1.6s|3.2s)  Rendering: [+ ]  (1.8s|3.4s)  Rendering: [+ ]  (2.1s|3.7s)  Rendering: [+ ]  (2.3s|4.0s)  Rendering: [+ ]  (2.6s|4.4s)  Rendering: [+ ]  (3.1s|4.9s)  Rendering: [+ ]  (3.6s|5.4s)  Rendering: [+ ]  (4.1s|6.0s)  Rendering: [+ ]  (4.6s|6.3s)  Rendering: [+ ]  (5.2s|6.9s)  Rendering: [+ ]  (5.7s|7.1s)  Rendering: [+ ]  (6.2s|7.6s)  Rendering: [+ ]  (6.7s|7.7s)  Rendering: [+ ]  (7.2s|8.1s)  Rendering: [+ ]  (7.7s|8.2s)  Rendering: [+ ]  (8.2s|8.6s)  Rendering: [+ ]  (8.7s|8.5s)  Rendering: [+ ]  (9.3s|8.9s)  Rendering: [+ ]  (9.8s|8.7s)  Rendering: [+ ]  (10.3s|9.1s)  Rendering: [+ ]  (10.8s|8.9s)  Rendering: [+ ]  (11.3s|9.2s)  Rendering: [+ ]  (11.8s|9.0s)  Rendering: [+ ]  (12.3s|9.2s)  Rendering: [+ ]  (12.9s|9.1s)  Rendering: [+ ]  (13.4s|9.3s)  Rendering: [+ ]  (13.9s|9.1s)  Rendering: [+ ]  (14.4s|9.2s)  Rendering: [+ ]  (14.9s|9.0s)  Rendering: [+ ]  (15.4s|9.0s)  Rendering: [+ ]  (15.9s|8.8s)  Rendering: [+ ]  (16.4s|8.7s)  Rendering: [+ ]  (16.9s|8.4s)  Rendering: [+ ]  (17.5s|8.1s)  Rendering: [+ ]  (18.0s|8.1s)  Rendering: [+ ]  (18.5s|7.7s)  Rendering: [+ ]  (19.0s|7.6s)  Rendering: [+ ]  (19.5s|7.2s)  Rendering: [+ ]  (20.0s|6.7s)  Rendering: [++]  (20.5s|6.3s)  Rendering: [++]  (21.0s|6.1s)  Rendering: [++]  (21.5s|5.7s)  Rendering: [++]  (22.1s|5.1s)  Rendering: [++]  (22.6s|4.7s)  Rendering: [++]  (23.1s|4.6s)  Rendering: [++]  (23.6s|4.1s)  Rendering: [++]  (24.1s|3.5s)  Rendering: [++]  (24.6s|3.0s)  Rendering: [++]  (25.1s|2.9s)  Rendering: [++]  (25.6s|2.2s)  Rendering: [++]  (26.1s|1.7s)  Rendering: [++]  (26.6s|1.0s)  PBRT_TOTAL_RENDER_TIME = 27.1sRendering: [++]  (27.1s)       Rendering: [++]  (27.6s)       
+Statistics:
+  BVH
+    Interior nodes                                                 166211
+    Leaf nodes                                                     166212
+    Primitives per leaf node                        236923 /       166212 (1.43x)
+  Integrator
+    Camera rays traced                                           81920000
+    Path length                                                     0.288 avg [range 0 - 5]
+    Zero-radiance paths                           12375830 /     24639118 (50.23%)
+  Intersections
+    Regular ray intersection tests                              128913671
+    Shadow ray intersection tests                                16058553
+    Ray-triangle intersection tests               48354733 /   1703840695 (2.84%)
+  Memory
+    BVH tree                                                        13.76 MiB
+    Film pixels                                                     19.53 MiB
+    Primitives                                                      16.26 MiB
+    TransformCache                                                 260.00 kB
+    Triangle meshes                                                 18.55 MiB
+  Scene
+    AreaLights                                                          5
+    Lights                                                              5
+    Materials created                                                   2
+    Shapes created                                                 473673
+    Probes per TransformCache lookup                                1.214 avg [range 1 - 2]
+    TransformCache hits                                  2 /           14 (14.29%)
+    Triangles per triangle mesh                     236750 /            1 (236750.00x)
+  SpatialLightDistribution
+    Distributions created                                            1693
+    Hash probes per lookup                                          1.004 avg [range 1 - 2]
+    Lookups per distribution                      24639118 /         1693 (14553.53x)

@@ -119,6 +119,8 @@
 #include <memory>
 #include <stdio.h>
 
+SubdivHyperParams g_subdivParams = {};
+
 namespace pbrt {
 
 // API Global Variables
@@ -155,9 +157,6 @@ struct TransformSet {
   private:
     Transform t[MaxTransforms];
 };
-
-static int s_oldTotalShapes = 0;
-static int s_newTotalShapes = 0;
 
 struct RenderOptions {
     // RenderOptions Public Methods
@@ -1684,8 +1683,9 @@ Scene *RenderOptions::MakeScene()
     {
         sceneAABB = Union( sceneAABB, prim->WorldBound() );
     }
-    std::cout << "\n\n\nScene volume = " << sceneAABB.Volume() << std::endl;
-    float THRESHOLD = sceneAABB.Volume() / pow( 2, 28 );
+    std::cout << "\n\n\nScene volume = " << sceneAABB.Volume() << ", T = " << g_subdivParams.currentT << std::endl;
+
+    float THRESHOLD = sceneAABB.Volume() / pow( 2, g_subdivParams.currentT );
     
     // do one pass to find out how many tris and verts are generated for each subdivided TriangleMesh
     std::unordered_map< std::shared_ptr< TriangleMesh >, SubdivInfo > meshSubdivInfo;
@@ -1707,9 +1707,12 @@ Scene *RenderOptions::MakeScene()
             info.newNumTris += numSubdivTris;
             totalNewPrims   += numSubdivTris;
         }
+        else
+        {
+            totalNewPrims++;
+        }
     }
-    std::cout << "(Make shapes:)  Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
-    std::cout << "(Post parsing:) Old number of shapes: " << primitives.size() << ", new = " << totalNewPrims << std::endl << std::endl;
+    std::cout << "old_num_shapes: " << primitives.size() << ", new_num_shapes: " << totalNewPrims << std::endl << std::endl;
 
     // For each TriangleMesh, allocate space for new subdivided TriangleMesh and copy existing vertex data over
     for ( auto it = meshSubdivInfo.begin(); it != meshSubdivInfo.end(); ++it )
@@ -1718,8 +1721,8 @@ Scene *RenderOptions::MakeScene()
         auto& subdivInfo          = it->second;
         auto newMesh              = std::make_shared< TriangleMesh >();
         subdivInfo.subdividedMesh = newMesh;
-        std::cout << "Old num tris: " << subdivInfo.oldNumTris << ", new: " << subdivInfo.newNumTris;
-        std::cout << ",\told num verts: " << subdivInfo.oldNumVerts << ", new: " << subdivInfo.newNumVerts << std::endl;
+        //std::cout << "Old num tris: " << subdivInfo.oldNumTris << ", new: " << subdivInfo.newNumTris;
+        //std::cout << ",\told num verts: " << subdivInfo.oldNumVerts << ", new: " << subdivInfo.newNumVerts << std::endl;
 
         newMesh->alphaMask       = oldMesh->alphaMask;
         newMesh->shadowAlphaMask = oldMesh->shadowAlphaMask;
@@ -1789,7 +1792,6 @@ Scene *RenderOptions::MakeScene()
     // Erase primitives and lights from _RenderOptions_
     primitives.clear();
     lights.clear();
-    //std::cout << "Old number of shapes: " << s_oldTotalShapes << ", new = " << s_newTotalShapes << std::endl;
     return scene;
 }
 

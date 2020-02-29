@@ -1,0 +1,39 @@
+
+
+
+Scene volume = 419.651, T = 6
+old_num_shapes: 236755, new_num_shapes: 236755
+
+BVH World Volume: 419.651
+Rendering: [  ] Rendering: [  ]  (0.3s|3.7s)  Rendering: [  ]  (0.5s|3.4s)  Rendering: [  ]  (0.8s|3.1s)  Rendering: [+ ]  (1.1s|2.9s)  Rendering: [+ ]  (1.3s|2.9s)  Rendering: [+ ]  (1.6s|3.2s)  Rendering: [+ ]  (1.8s|3.4s)  Rendering: [+ ]  (2.1s|3.8s)  Rendering: [+ ]  (2.3s|4.0s)  Rendering: [+ ]  (2.6s|4.4s)  Rendering: [+ ]  (3.1s|4.9s)  Rendering: [+ ]  (3.6s|5.4s)  Rendering: [+ ]  (4.1s|6.0s)  Rendering: [+ ]  (4.6s|6.4s)  Rendering: [+ ]  (5.1s|6.9s)  Rendering: [+ ]  (5.7s|7.3s)  Rendering: [+ ]  (6.2s|7.6s)  Rendering: [+ ]  (6.7s|7.7s)  Rendering: [+ ]  (7.2s|8.1s)  Rendering: [+ ]  (7.7s|8.2s)  Rendering: [+ ]  (8.2s|8.6s)  Rendering: [+ ]  (8.7s|8.6s)  Rendering: [+ ]  (9.2s|8.9s)  Rendering: [+ ]  (9.8s|8.8s)  Rendering: [+ ]  (10.3s|9.2s)  Rendering: [+ ]  (10.8s|9.4s)  Rendering: [+ ]  (11.3s|9.3s)  Rendering: [+ ]  (11.8s|9.6s)  Rendering: [+ ]  (12.3s|9.4s)  Rendering: [+ ]  (12.8s|9.6s)  Rendering: [+ ]  (13.3s|9.4s)  Rendering: [+ ]  (13.8s|9.7s)  Rendering: [+ ]  (14.3s|9.9s)  Rendering: [+ ]  (14.8s|9.6s)  Rendering: [+ ]  (15.3s|9.8s)  Rendering: [+ ]  (15.8s|9.5s)  Rendering: [+ ]  (16.4s|9.6s)  Rendering: [+ ]  (16.9s|9.3s)  Rendering: [+ ]  (17.4s|9.3s)  Rendering: [+ ]  (17.9s|9.0s)  Rendering: [+ ]  (18.4s|8.9s)  Rendering: [+ ]  (18.9s|8.6s)  Rendering: [+ ]  (19.4s|8.4s)  Rendering: [+ ]  (19.9s|8.2s)  Rendering: [+ ]  (20.4s|7.7s)  Rendering: [+ ]  (20.9s|7.6s)  Rendering: [++]  (21.4s|7.1s)  Rendering: [++]  (22.0s|6.6s)  Rendering: [++]  (22.5s|6.3s)  Rendering: [++]  (23.0s|6.0s)  Rendering: [++]  (23.5s|5.5s)  Rendering: [++]  (24.0s|4.9s)  Rendering: [++]  (24.5s|4.7s)  Rendering: [++]  (25.0s|4.3s)  Rendering: [++]  (25.5s|3.7s)  Rendering: [++]  (26.0s|3.3s)  Rendering: [++]  (26.6s|3.1s)  Rendering: [++]  (27.1s|2.5s)  Rendering: [++]  (27.6s|1.9s)  Rendering: [++]  (28.1s|1.3s)  Rendering: [++]  (28.6s|0.1s)  PBRT_TOTAL_RENDER_TIME = 28.7sRendering: [++]  (29.1s)       
+Statistics:
+  BVH
+    Interior nodes                                                 166354
+    Leaf nodes                                                     166355
+    Primitives per leaf node                        236755 /       166355 (1.42x)
+  Integrator
+    Camera rays traced                                           81920000
+    Path length                                                     0.287 avg [range 0 - 5]
+    Zero-radiance paths                           12362622 /     24614711 (50.22%)
+  Intersections
+    Regular ray intersection tests                              128857056
+    Shadow ray intersection tests                                16046209
+    Ray-triangle intersection tests               49039798 /   1791003077 (2.74%)
+  Memory
+    BVH tree                                                        13.77 MiB
+    Film pixels                                                     19.53 MiB
+    Primitives                                                      16.26 MiB
+    TransformCache                                                 260.00 kB
+    Triangle meshes                                                 18.55 MiB
+  Scene
+    AreaLights                                                          5
+    Lights                                                              5
+    Materials created                                                   2
+    Shapes created                                                 473505
+    Probes per TransformCache lookup                                1.214 avg [range 1 - 2]
+    TransformCache hits                                  2 /           14 (14.29%)
+    Triangles per triangle mesh                     236750 /            1 (236750.00x)
+  SpatialLightDistribution
+    Distributions created                                            1708
+    Hash probes per lookup                                          1.003 avg [range 1 - 2]
+    Lookups per distribution                      24614711 /         1708 (14411.42x)

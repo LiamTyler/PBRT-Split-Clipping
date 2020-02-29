@@ -37,6 +37,10 @@
 #include "parser.h"
 #include "parallel.h"
 #include <glog/logging.h>
+#include <io.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 
 using namespace pbrt;
 
@@ -128,6 +132,12 @@ int main(int argc, char *argv[]) {
         } else if (!strncmp(argv[i], "--v=", 4)) {
           FLAGS_v = atoi(argv[i] + 4);
         }
+        else if (!strncmp(argv[i], "--TS=", 5)) {
+          g_subdivParams.T_Start = atoi(argv[i] + 5);
+        }
+        else if (!strncmp(argv[i], "--TE=", 5)) {
+          g_subdivParams.T_End = atoi(argv[i] + 5);
+        }
         else if (!strcmp(argv[i], "--logtostderr")) {
           FLAGS_logtostderr = true;
         } else if (!strcmp(argv[i], "--help") || !strcmp(argv[i], "-help") ||
@@ -158,16 +168,54 @@ int main(int argc, char *argv[]) {
         printf("See the file LICENSE.txt for the conditions of the license.\n");
         fflush(stdout);
     }
-    pbrtInit(options);
-    // Process scene description
-    if (filenames.empty()) {
-        // Parse scene from standard input
-        pbrtParseFile("-");
-    } else {
-        // Parse scene from input files
-        for (const std::string &f : filenames)
-            pbrtParseFile(f);
+
+    std::string imageFileBase, imageFileExtension;
+    if ( options.imageFile != "" )
+    {
+        int i = options.imageFile.length() - 1;
+        for ( ; i >= 0 && options.imageFile[i] != '.'; --i );
+        if ( i > 0 )
+        {
+            imageFileBase = options.imageFile.substr( 0, i );
+            imageFileExtension = options.imageFile.substr( i + 1 );
+        }
     }
-    pbrtCleanup();
+    int stdoutHandle = dup( 1 );
+    for ( int T = g_subdivParams.T_Start; T <= g_subdivParams.T_End; ++T )
+    {
+        g_subdivParams.currentT = T;
+        std::cout << "SUBDIV T = " << T << std::endl;
+        FILE* file = NULL;
+        if ( imageFileBase != "" )
+        {
+            options.imageFile = imageFileBase + "_T" + std::to_string( T ) + "." + imageFileExtension;
+            std::cout << "outputFile = " << options.imageFile << std::endl;
+            std::string logFile = imageFileBase + "_T" + std::to_string( T ) + "_log.txt";
+            file = fopen( logFile.c_str(), "w" );
+            if ( !file )
+            {
+                std::cout << "Could not open log file!" << std::endl;
+            }
+            dup2( fileno( file ), 1 );
+        }
+        pbrtInit(options);
+        // Process scene description
+        if (filenames.empty()) {
+            // Parse scene from standard input
+            pbrtParseFile("-");
+        } else {
+            // Parse scene from input files
+            for (const std::string &f : filenames)
+                pbrtParseFile(f);
+        }
+        pbrtCleanup();
+        if ( file )
+        {
+            fflush( stdout );
+            fclose( file );
+            dup2( stdoutHandle, 1 );
+        }
+    }
+
     return 0;
 }

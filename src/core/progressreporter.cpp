@@ -148,6 +148,8 @@ void ProgressReporter::PrintBar() {
 
 void ProgressReporter::Done() {
     workDone = totalWork;
+    Float seconds = ElapsedMS() / 1000.f;
+    printf( "PBRT_TOTAL_RENDER_TIME = %.1fs", seconds );
 }
 
 static int TerminalWidth() {
