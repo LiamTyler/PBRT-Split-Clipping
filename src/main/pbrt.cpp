@@ -181,7 +181,9 @@ int main(int argc, char *argv[]) {
         }
     }
     int stdoutHandle = dup( 1 );
-    for ( int T = g_subdivParams.T_Start; T <= g_subdivParams.T_End; ++T )
+    auto Ts = { 0, 12, 14, 16 };
+    //for ( int T = g_subdivParams.T_Start; T <= g_subdivParams.T_End; ++T )
+    for ( const auto T : Ts )
     {
         g_subdivParams.currentT = T;
         std::cout << "SUBDIV T = " << T << std::endl;

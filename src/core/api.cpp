@@ -1677,6 +1677,7 @@ Scene *RenderOptions::MakeScene()
     std::map<std::string, std::shared_ptr<Texture<Spectrum>>> emptySpectrumTex;
     TextureParams tp( nullP, nullP, emptyFloatTex, emptySpectrumTex );
     std::shared_ptr< Material > redMaterial = MakeMaterial( "RED", tp );
+
     // calculate scene bounds
     Bounds3f sceneAABB;
     for ( const auto& prim : primitives )
@@ -1710,15 +1711,13 @@ Scene *RenderOptions::MakeScene()
             int numSubdivTris = tri->NumSubdividedTris( THRESHOLD, info.newNumVerts );
             info.newNumTris += numSubdivTris;
             totalNewPrims   += numSubdivTris;
-            trianglesAABB = Union( trianglesAABB, tri->WorldBound() );
         }
         else
         {
             totalNewPrims++;
         }
     }
-    std::cout << "TRIANGLES AABB    = " << trianglesAABB << std::endl;
-    std::cout << "TRIANGLES ceneter = " << 0.5f * (trianglesAABB.pMin + trianglesAABB.pMax) << std::endl;
+
     std::cout << "old_num_shapes: " << primitives.size() << ", new_num_shapes: " << totalNewPrims << std::endl << std::endl;
 
     // For each TriangleMesh, allocate space for new subdivided TriangleMesh and copy existing vertex data over

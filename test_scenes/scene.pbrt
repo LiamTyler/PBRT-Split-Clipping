@@ -1,7 +1,6 @@
+
 Accelerator "bvh"
-
-LookAt 5.69658377 3.28892417 2.394141   0 3.28892417 2.394141   0 0 1
-
+LookAt 0 0 0 -1 0 0 0 0 1
 Camera "perspective" "float fov" [60 ]
 Film "image"  "integer xresolution" [800 ] "integer yresolution" [800 ]
     "string filename" "sponza.exr"
@@ -9,13 +8,10 @@ Film "image"  "integer xresolution" [800 ] "integer yresolution" [800 ]
 Sampler "lowdiscrepancy" "integer pixelsamples" [32]
 
 WorldBegin
-Rotate 29.999999999999993 0 0 1
-Rotate -19.999999999999996 0 1 0
-Rotate 89.99999999999999 1 0 0
+Rotate 89.99999999999999 0 0 1
+Rotate 0.0 0 1 0
+Rotate -180.0 1 0 0
 
-# Rotate 30 0 0 1
-# Rotate -20 0 1 0
-# Rotate 90 1 0 0
 
 Translate -0.00724029541 0.00148797035 -7.37331104
 AttributeBegin
