@@ -181,7 +181,7 @@ int main(int argc, char *argv[]) {
         }
     }
     int stdoutHandle = dup( 1 );
-    auto Ts = { 0, 12, 14, 16 };
+    auto Ts = { 28, 32, 36 };
     //for ( int T = g_subdivParams.T_Start; T <= g_subdivParams.T_End; ++T )
     for ( const auto T : Ts )
     {

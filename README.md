@@ -21,6 +21,9 @@ Extending the the PBRT path tracer (https://github.com/mmp/pbrt-v3) to use the E
 ## Results / Comparison to Paper Figures
 All contained in the results/ folder.
 
+### Bunny Model
+With a threshold of T = 25, there is no subdivision at all. Even with T = 28 there is only a 1% increase in the number of triangles. This is desired, since the algorithm is not supposed to subdivide triangles that are already very small, like in the case of the bunny model.
+
 ### Spaceship Figure 4
 
 ![Spaceship scene with varying threshold values](results/spaceship.png)
